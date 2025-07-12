@@ -37,7 +37,6 @@
     let currentRound = 1;
     let score = 0;
     let highScore = localStorage.getItem('highScore') || 0;
-    let sequenceLength = 3;
     let currentSequence = '';
     let timeoutId = null;
     let answerTimerId = null;
@@ -70,7 +69,6 @@
     function startGame() {
       currentRound = 1;
       score = 0;
-      sequenceLength = 3;
       updateScore();
       startBtn.classList.add('hidden');
       feedbackEl.textContent = '';
@@ -105,9 +103,18 @@
       }, 1000);
     }
 
+    function getSequenceLength(round) {
+      if (round <= 5) return 3;
+      if (round <= 12) return 4;
+      if (round <= 19) return 5;
+      if (round <= 29) return 5 + Math.floor((round - 20) / 3);
+      return 5 + Math.floor((29 - 20) / 3) + (round - 29);
+    }
+
     function generateSequence() {
+      let length = getSequenceLength(currentRound);
       currentSequence = '';
-      for (let i = 0; i < sequenceLength; i++) {
+      for (let i = 0; i < length; i++) {
         currentSequence += Math.floor(Math.random() * 10);
       }
     }
@@ -151,7 +158,6 @@
       if (userInput === currentSequence) {
         let points = getPoints(currentRound);
         score += points;
-        if (score % 30 === 0 && sequenceLength < 12) sequenceLength++;
         feedbackEl.textContent = `✅ Correct! +${points} points`;
         currentRound++;
         updateScore();
@@ -166,7 +172,7 @@
         highScore = score;
         localStorage.setItem('highScore', highScore);
       }
-      scoreEl.textContent = `Score: ${score} | Round: ${currentRound} | High Score: ${highScore}`;
+      scoreEl.textContent = `Score: ${score} | Round: ${currentRound}`;
     }
 
     function getPoints(round) {
@@ -194,8 +200,11 @@
       sequenceEl.textContent = '';
       countdownEl.textContent = '';
       timerEl.classList.add('hidden');
-      feedbackEl.innerHTML = `${message}<br>Final Score: ${score}`;
-      scoreEl.textContent = `Your best score to date: ${highScore}`;
+      feedbackEl.innerHTML = `${message}`;
+      const scoreDisplay = document.createElement('div');
+      scoreDisplay.innerHTML = `Final Score: ${score}`;
+      feedbackEl.appendChild(scoreDisplay);
+      scoreEl.textContent = `Your best score so far: ${highScore}`;
       startBtn.textContent = 'Play Again';
       startBtn.classList.remove('hidden');
     }
