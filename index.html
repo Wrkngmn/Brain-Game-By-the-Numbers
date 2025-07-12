@@ -79,7 +79,7 @@
 
     function startRound() {
       if (currentRound > maxRounds) {
-        endGame("🎉 You completed all 40 rounds! Final Score: " + score);
+        endGame("🎉 You completed all 40 rounds!", true);
         return;
       }
 
@@ -138,7 +138,7 @@
         } else {
           clearInterval(answerTimerId);
           feedbackEl.textContent = '⏱️ Time’s up!';
-          endGame(getFailureMessage(currentRound));
+          endGame(getFailureMessage(currentRound), false);
         }
       }, 1000);
     }
@@ -157,7 +157,7 @@
         updateScore();
         setTimeout(startRound, 1000);
       } else {
-        endGame(getFailureMessage(currentRound));
+        endGame(getFailureMessage(currentRound), false);
       }
     }
 
@@ -178,23 +178,15 @@
     }
 
     function getFailureMessage(round) {
-      let message = '';
-      if (round <= 5) {
-        message = "👍 I'm sure your finger just slipped.";
-      } else if (round <= 10) {
-        message = "😕 Did your phone ring?";
-      } else if (round <= 15) {
-        message = "👏 Ohh, nice going.";
-      } else if (round <= 20) {
-        message = "😮 Wow, impressive.";
-      } else {
-        const msgIndex = Math.min(round - 21, highTierMessages.length - 1);
-        message = "🔥 " + highTierMessages[msgIndex];
-      }
-      return `${message} Final Score: ${score} | Round: ${currentRound}`;
+      if (round <= 5) return "👍 I'm sure your finger just slipped.";
+      if (round <= 10) return "😕 Did your phone ring?";
+      if (round <= 15) return "👏 Ohh, nice going.";
+      if (round <= 20) return "😮 Wow, impressive.";
+      const msgIndex = Math.min(round - 21, highTierMessages.length - 1);
+      return "🔥 " + highTierMessages[msgIndex];
     }
 
-    function endGame(message) {
+    function endGame(message, completed) {
       clearInterval(answerTimerId);
       clearInterval(countdownTimerId);
       inputEl.classList.add('hidden');
@@ -202,7 +194,8 @@
       sequenceEl.textContent = '';
       countdownEl.textContent = '';
       timerEl.classList.add('hidden');
-      feedbackEl.textContent = message;
+      feedbackEl.innerHTML = `${message}<br>Final Score: ${score}`;
+      scoreEl.textContent = `Your best score to date: ${highScore}`;
       startBtn.textContent = 'Play Again';
       startBtn.classList.remove('hidden');
     }
