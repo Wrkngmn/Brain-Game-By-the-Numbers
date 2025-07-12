@@ -1,13 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Number Recall Challenge</title>
   <style>
     body { font-family: Arial, sans-serif; text-align: center; margin: 50px; background: #f0f0f0; }
     #game-container { max-width: 400px; margin: 0 auto; padding: 20px; background: white; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
     #sequence { font-size: 48px; margin: 20px 0; color: #007bff; }
+    #countdown { font-size: 36px; color: red; margin: 10px 0; }
+    #timer { font-size: 20px; color: #d9534f; margin: 10px 0; }
     #input { padding: 10px; font-size: 24px; width: 200px; margin: 10px 0; }
     #feedback { font-size: 20px; margin: 10px 0; }
     #score { font-size: 18px; }
@@ -19,28 +21,49 @@
 <body>
   <div id="game-container">
     <h1>Number Recall Challenge</h1>
-    <p>Memorize the sequence, then type it back. 20 rounds total.</p>
+    <p>Memorize the sequence, then type it back. 40 rounds total. You have 6 seconds to answer!</p>
     <div id="sequence"></div>
+    <div id="countdown"></div>
     <input type="text" id="input" class="hidden" placeholder="Enter the sequence">
     <button id="start-btn">Start Game</button>
     <button id="submit-btn" class="hidden">Submit</button>
+    <div id="timer" class="hidden"></div>
     <div id="feedback"></div>
-    <div id="score">Score: 0/20 | Round: 1</div>
+    <div id="score">Score: 0 | Round: 1 | High Score: 0</div>
   </div>
 
   <script>
+    const maxRounds = 40;
     let currentRound = 1;
     let score = 0;
+    let highScore = localStorage.getItem('highScore') || 0;
     let sequenceLength = 3;
     let currentSequence = '';
-    const maxRounds = 20;
+    let timeoutId = null;
+    let answerTimerId = null;
+    let countdownTimerId = null;
 
     const sequenceEl = document.getElementById('sequence');
+    const countdownEl = document.getElementById('countdown');
     const inputEl = document.getElementById('input');
     const startBtn = document.getElementById('start-btn');
     const submitBtn = document.getElementById('submit-btn');
     const feedbackEl = document.getElementById('feedback');
     const scoreEl = document.getElementById('score');
+    const timerEl = document.getElementById('timer');
+
+    const highTierMessages = [
+      "You're not human. Incredible. 🤯",
+      "You must be a Mensa member. 🧠",
+      "Genius alert! 🔥",
+      "You're officially elite. 🏅",
+      "This is getting ridiculous. 💡",
+      "Unreal memory power! 💥",
+      "Olympic-level brain. 🥇",
+      "You’re in the Matrix. 💊",
+      "Mind-blowing recall. 🚀",
+      "Contact the Pope — you must be God. 🙌"
+    ];
 
     startBtn.addEventListener('click', startGame);
 
@@ -49,27 +72,43 @@
       score = 0;
       sequenceLength = 3;
       updateScore();
-      startRound();
       startBtn.classList.add('hidden');
+      feedbackEl.textContent = '';
+      startRound();
     }
 
     function startRound() {
       if (currentRound > maxRounds) {
-        endGame();
+        endGame("🎉 You completed all 40 rounds! Final Score: " + score);
         return;
       }
+
       generateSequence();
       sequenceEl.textContent = currentSequence;
       inputEl.classList.add('hidden');
       submitBtn.classList.add('hidden');
-      feedbackEl.textContent = 'Memorize this...';
-      setTimeout(hideSequence, 2000); // 2 seconds to memorize
+      timerEl.classList.add('hidden');
+      feedbackEl.textContent = '';
+
+      let countdown = 3;
+      countdownEl.textContent = countdown;
+      countdownTimerId = setInterval(() => {
+        countdown--;
+        if (countdown > 0) {
+          countdownEl.textContent = countdown;
+        } else {
+          clearInterval(countdownTimerId);
+          countdownEl.textContent = '';
+          hideSequence();
+          startTimer();
+        }
+      }, 1000);
     }
 
     function generateSequence() {
       currentSequence = '';
       for (let i = 0; i < sequenceLength; i++) {
-        currentSequence += Math.floor(Math.random() * 10); // 0-9
+        currentSequence += Math.floor(Math.random() * 10);
       }
     }
 
@@ -85,35 +124,85 @@
     }
 
     function handleEnter(event) {
-      if (event.key === 'Enter') {
-        checkAnswer();
-      }
+      if (event.key === 'Enter') checkAnswer();
+    }
+
+    function startTimer() {
+      let timeLeft = 6;
+      timerEl.classList.remove('hidden');
+      timerEl.textContent = `⏳ Time left: ${timeLeft}s`;
+      answerTimerId = setInterval(() => {
+        timeLeft--;
+        if (timeLeft > 0) {
+          timerEl.textContent = `⏳ Time left: ${timeLeft}s`;
+        } else {
+          clearInterval(answerTimerId);
+          feedbackEl.textContent = '⏱️ Time’s up!';
+          endGame(getFailureMessage(currentRound));
+        }
+      }, 1000);
     }
 
     function checkAnswer() {
+      clearInterval(answerTimerId);
+      inputEl.removeEventListener('keydown', handleEnter);
+
       const userInput = inputEl.value.trim();
-      inputEl.removeEventListener('keydown', handleEnter); // Clean up listener
       if (userInput === currentSequence) {
-        feedbackEl.textContent = 'Correct!';
-        score++;
-        if (score % 3 === 0 && sequenceLength < 10) sequenceLength++; // Increase difficulty every 3 correct
+        let points = getPoints(currentRound);
+        score += points;
+        if (score % 30 === 0 && sequenceLength < 12) sequenceLength++;
+        feedbackEl.textContent = `✅ Correct! +${points} points`;
+        currentRound++;
+        updateScore();
+        setTimeout(startRound, 1000);
       } else {
-        feedbackEl.textContent = `Wrong! It was ${currentSequence}.`;
+        endGame(getFailureMessage(currentRound));
       }
-      updateScore();
-      currentRound++;
-      setTimeout(startRound, 2000); // Pause before next round
     }
 
     function updateScore() {
-      scoreEl.textContent = `Score: ${score}/${maxRounds} | Round: ${currentRound}`;
+      if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('highScore', highScore);
+      }
+      scoreEl.textContent = `Score: ${score} | Round: ${currentRound} | High Score: ${highScore}`;
     }
 
-    function endGame() {
-      feedbackEl.textContent = `Game Over! Final Score: ${score}/${maxRounds}`;
-      sequenceEl.textContent = '';
+    function getPoints(round) {
+      if (round <= 5) return 10;
+      if (round <= 10) return 15;
+      if (round <= 15) return 20;
+      if (round <= 20) return 27;
+      return 76 + 33 * (round - 21);
+    }
+
+    function getFailureMessage(round) {
+      let message = '';
+      if (round <= 5) {
+        message = "👍 I'm sure your finger just slipped.";
+      } else if (round <= 10) {
+        message = "😕 Did your phone ring?";
+      } else if (round <= 15) {
+        message = "👏 Ohh, nice going.";
+      } else if (round <= 20) {
+        message = "😮 Wow, impressive.";
+      } else {
+        const msgIndex = Math.min(round - 21, highTierMessages.length - 1);
+        message = "🔥 " + highTierMessages[msgIndex];
+      }
+      return `${message} Final Score: ${score} | Round: ${currentRound}`;
+    }
+
+    function endGame(message) {
+      clearInterval(answerTimerId);
+      clearInterval(countdownTimerId);
       inputEl.classList.add('hidden');
       submitBtn.classList.add('hidden');
+      sequenceEl.textContent = '';
+      countdownEl.textContent = '';
+      timerEl.classList.add('hidden');
+      feedbackEl.textContent = message;
       startBtn.textContent = 'Play Again';
       startBtn.classList.remove('hidden');
     }
